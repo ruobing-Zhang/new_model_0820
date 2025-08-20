@@ -1,0 +1,88 @@
+# adapter_config.yaml
+# ConformerEncoderAdapter 配置文件
+
+model:
+  # 基础模型路径
+  base_model_path: "/root/autodl-tmp/joint_sortformer_and_asr_0815/models/stt_en_conformer_transducer_large.nemo"
+  
+  # 说话人注入配置
+  speaker_injection:
+    K_max: 4  # 最大说话人数
+    alpha_init: 0.1  # 初始注入强度
+  
+  # Adapter 配置
+  adapter:
+    enabled: true
+    name: "linear_adapter"
+    config:
+      _target_: "nemo.collections.common.parts.adapter_modules.LinearAdapter"
+      # in_features 会在运行时自动设置为 encoder.d_model
+      dim: 128  # adapter 隐藏层维度
+      activation: "swish"  # 激活函数: swish, relu, gelu
+      norm_position: "post"  # 归一化位置: pre, post
+      dropout: 0.1  # dropout 概率
+      # 其他可选配置:
+      # bias: true
+      # init_scale: 0.0  # 最终层初始化缩放因子
+
+training:
+  # 训练配置
+  max_epochs: 10
+  batch_size: 4
+  learning_rate: 1e-4
+  weight_decay: 1e-5
+  
+  # 优化器配置
+  optimizer:
+    _target_: "torch.optim.AdamW"
+    lr: 1e-4
+    weight_decay: 1e-5
+    betas: [0.9, 0.999]
+  
+  # 学习率调度器
+  scheduler:
+    _target_: "torch.optim.lr_scheduler.CosineAnnealingLR"
+    T_max: 100
+    eta_min: 1e-6
+  
+  # 梯度裁剪
+  gradient_clip_val: 1.0
+  
+  # 精度
+  precision: 16
+
+# 数据配置
+data:
+  # 训练数据
+  train_manifest: null  # 训练manifest路径
+  val_manifest: null    # 验证manifest路径
+  
+  # 数据加载配置
+  num_workers: 4
+  pin_memory: true
+  
+  # 音频配置
+  sample_rate: 16000
+  
+# 输出配置
+output:
+  output_dir: "./outputs"
+  experiment_name: "multispeaker_asr_adapter"
+  
+  # 检查点配置
+  checkpoint:
+    monitor: "val_loss"
+    mode: "min"
+    save_top_k: 3
+    filename: "best-{epoch:02d}-{val_loss:.2f}"
+  
+  # 日志配置
+  logging:
+    log_every_n_steps: 10
+    val_check_interval: 0.5
+
+# 测试配置
+test:
+  enabled: true  # 是否启用测试模式（使用模拟数据）
+  num_train_batches: 20
+  num_val_batches: 5

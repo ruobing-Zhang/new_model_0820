@@ -1,0 +1,162 @@
+# 多说话人ASR适配器微调配置文件
+# 基于NeMo的适配器机制，结合说话人注入模型进行微调
+
+name: "MultiSpeaker-ASR-Adapter"
+
+model:
+  # 预训练模型路径 - 用户需要指定实际路径
+  pretrained_model: null  # 例如: "nvidia/stt_zh_conformer_transducer_large"
+  nemo_model: "../pretrained_model/zh_conformer_transducer_large_bpe_init.nemo"  # 本地模型文件路径
+
+  log_prediction: true # 启用训练过程中的预测日志
+
+  # 说话人注入模型特定配置
+  speaker_injection:
+    K_max: 4  # 最大说话人数量
+    alpha_init: 0.1  # 说话人注入强度初始值
+
+  adapter:
+    ### 适配器训练/评估脚本配置 ###
+    adapter_name: "multispeaker_adapter"  # 适配器名称
+    adapter_type: "linear"  # 适配器类型
+    adapter_module_name: "encoder"  # 适配器模块名称
+    adapter_state_dict_name: "multispeaker_adapters.pt"  # 适配器状态字典保存文件名
+
+    # 线性适配器配置
+    linear:
+      in_features: 512  # 编码器输出维度 (需要根据实际模型调整)
+      dim: 64  # 适配器瓶颈维度
+      norm_position: "pre"  # 归一化位置
+      dropout: 0.1  # dropout率
+      activation: "swish"  # 激活函数
+
+      # 适配器策略配置
+      adapter_strategy:
+        _target_: nemo.collections.asr.parts.submodules.adapters.linear_adapter_module.LinearAdapterStrategy
+        stochastic_depth: 0.0  # 随机深度
+        l2_lambda: 0.0  # L2正则化系数
+
+    # 全局适配器配置
+    global_cfg:
+      check_encoder_adapter: True  # 检查编码器适配器模块支持
+      check_joint_adapter: False  # 不检查联合适配器模块
+
+  # 频谱增强配置 (训练时使用较轻的增强)
+  spec_augment:
+    _target_: nemo.collections.asr.modules.SpectrogramAugmentation
+    freq_masks: 1
+    time_masks: 2
+    freq_width: 15
+    time_width: 0.03
+
+  # 训练数据配置
+  train_ds:
+    manifest_filepath: "../data/M8013_multispeaker_manifest_train_joint_no_punc_with_4speakers.json"  # 包含npy_path的manifest文件
+    batch_size: 8  # 批次大小 (可根据GPU内存调整)
+    shuffle: true
+    num_workers: 4
+    pin_memory: true
+    # 数据预处理参数
+    sample_rate: 16000
+    trim_silence: false
+    max_duration: 40.0  # 最大音频长度(秒)
+    min_duration: 0.5   # 最小音频长度(秒)
+    # 分桶策略
+    bucketing_strategy: "synced_randomized"
+    bucketing_batch_size: null
+    # tarred数据集支持
+    is_tarred: false
+    tarred_audio_filepaths: null
+    shuffle_n: 2048
+
+  # 验证数据配置
+  validation_ds:
+    manifest_filepath: "../data/M8013_multispeaker_manifest_train_joint_no_punc_with_4speakers.json"  # 验证集manifest
+    batch_size: 8
+    shuffle: false
+    num_workers: 4
+    pin_memory: true
+    sample_rate: 16000
+    trim_silence: false
+    max_duration: 40.0
+    min_duration: 0.5
+
+  # 测试数据配置 (可选)
+  test_ds:
+    manifest_filepath: null
+    batch_size: 8
+    shuffle: false
+    num_workers: 4
+    pin_memory: true
+
+  # 优化器配置
+  optim:
+    name: adamw
+    betas: [0.9, 0.98]
+    lr: 0.0005  # 适配器训练使用较小的学习率
+    weight_decay: 0.01  # 轻微的权重衰减
+
+    # 学习率调度器配置
+    sched:
+      name: CosineAnnealing
+      warmup_steps: 100  # 预热步数
+      min_lr: 1e-6
+      last_epoch: -1
+
+# 训练器配置
+trainer:
+  devices: 1  # GPU数量
+  num_nodes: 1
+  max_epochs: 10  # 最大训练轮数
+  max_steps: 2000  # 最大训练步数
+  val_check_interval: 0.5  # 验证检查间隔
+  accelerator: auto
+  strategy:
+    _target_: lightning.pytorch.strategies.DDPStrategy
+    gradient_as_bucket_view: true
+  accumulate_grad_batches: 2  # 梯度累积
+  gradient_clip_val: 1.0  # 梯度裁剪
+  precision: 16  # 混合精度训练
+  log_every_n_steps: 50  # 日志记录间隔
+  enable_progress_bar: True
+  num_sanity_val_steps: 2  # 验证检查步数
+  check_val_every_n_epoch: 1  # 每n个epoch验证一次
+  sync_batchnorm: true
+  enable_checkpointing: False  # 由exp_manager提供
+  logger: false  # 由exp_manager提供
+  benchmark: false  # 变长输入需要设为false
+
+# 实验管理器配置
+exp_manager:
+  exp_dir: "../experiments"  # 实验目录
+  name: ${name}
+  create_tensorboard_logger: true
+  create_checkpoint_callback: true
+  checkpoint_callback_params:
+    monitor: "val_wer"  # 监控验证WER
+    mode: "min"
+    save_top_k: 3
+    always_save_nemo: True  # 保存为nemo格式
+    save_best_model: True
+
+  # Weights & Biases日志 (可选)
+  create_wandb_logger: false
+  wandb_logger_kwargs:
+    name: "multispeaker_asr_adapter"
+    project: "multispeaker_asr"
+    entity: null
+    save_dir: null
+    offline: false
+    tags: ["adapter", "multispeaker", "asr"]
+
+  resume_if_exists: false
+  resume_ignore_no_checkpoint: false
+
+# 自定义配置
+custom:
+  # 是否在训练后删除检查点以节省空间
+  delete_ckpt_after_train: false
+  # 说话人标签矩阵相关配置
+  speaker_labels:
+    interpolation_mode: "linear"  # 插值模式
+    normalize: true  # 是否归一化
