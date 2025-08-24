@@ -1,0 +1,5 @@
+{"audio_filepath": "/path/to/audio1.wav", "text": "你好世界", "pgt_npy": "/path/to/spk_probs1.npy", "utt_id": "utt_001", "duration": 2.5}
+{"audio_filepath": "/path/to/audio2.wav", "text": "这是一个测试", "pgt_npy": "/path/to/spk_probs2.npy", "utt_id": "utt_002", "duration": 3.2}
+{"audio_filepath": "/path/to/audio3.wav", "text": "多说话人语音识别", "pgt_npy": "/path/to/spk_probs3.npy", "utt_id": "utt_003", "duration": 4.1}
+{"audio_filepath": "/path/to/audio4.wav", "text": "<|spk0|>你好<|spk1|>世界", "pgt_npy": "/path/to/spk_probs4.npy", "utt_id": "utt_004", "duration": 2.8}
+{"audio_filepath": "/path/to/audio5.wav", "text": "<|spk0|>这是<|spk1|>说话人<|spk0|>切换的例子", "pgt_npy": "/path/to/spk_probs5.npy", "utt_id": "utt_005", "duration": 5.0}

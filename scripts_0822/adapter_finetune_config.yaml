@@ -1,0 +1,86 @@
+# Adapter微调训练配置文件
+# 使用方法: python adapter_finetune_train.py --config adapter_finetune_config.yaml
+
+# 模型配置
+model:
+  pretrained_model_path: "/root/autodl-tmp/joint_sortformer_and_asr_0815/pretrained_models/stt_zh_conformer_transducer_large.nemo"
+  K_max: 4  # 最大说话人数量
+  alpha_init: 0.1  # 说话人注入强度初始值
+  num_adapters: 4  # Adapter层数量
+  adapter_bottleneck: 256  # Adapter瓶颈层维度
+
+# 训练配置
+training:
+  learning_rate: 1e-4  # 学习率
+  weight_decay: 1e-6  # 权重衰减
+  batch_size: 8  # 批次大小
+  max_epochs: 50  # 最大训练轮数
+  gradient_clip_val: 1.0  # 梯度裁剪
+  accumulate_grad_batches: 1  # 梯度累积批次
+  val_check_interval: 1.0  # 验证检查间隔
+  log_every_n_steps: 10  # 日志记录间隔
+
+# 数据配置
+data:
+  train_manifest: "/path/to/train_manifest.jsonl"  # 训练数据manifest路径
+  val_manifest: "/path/to/val_manifest.jsonl"  # 验证数据manifest路径
+  sample_rate: 16000  # 音频采样率
+  num_workers: 4  # 数据加载器工作进程数
+
+# 输出配置
+output:
+  output_dir: "./adapter_finetune_output"  # 输出目录
+  experiment_name: "adapter_finetune"  # 实验名称
+
+# 硬件配置
+hardware:
+  gpus: 1  # GPU数量
+  precision: 16  # 训练精度 (16 for mixed precision, 32 for full precision)
+
+# 回调配置
+callbacks:
+  model_checkpoint:
+    monitor: "val_loss"  # 监控指标
+    mode: "min"  # 监控模式
+    save_top_k: 3  # 保存最好的k个模型
+    save_last: true  # 保存最后一个模型
+  
+  early_stopping:
+    monitor: "val_loss"  # 监控指标
+    mode: "min"  # 监控模式
+    patience: 10  # 早停耐心值
+    verbose: true  # 详细输出
+
+# 优化器配置
+optimizer:
+  name: "AdamW"  # 优化器名称
+  lr_scheduler:
+    name: "ReduceLROnPlateau"  # 学习率调度器名称
+    mode: "min"  # 调度模式
+    factor: 0.5  # 学习率衰减因子
+    patience: 3  # 调度耐心值
+    verbose: true  # 详细输出
+
+# 说话人标记配置
+speaker_tokens:
+  - "<|spk0|>"
+  - "<|spk1|>"
+  - "<|spk2|>"
+  - "<|spk3|>"
+
+# 冻结策略配置
+freezing_strategy:
+  freeze_modules:
+    - "preprocessor"  # 冻结预处理器
+    - "encoder"  # 冻结编码器
+  
+  trainable_modules:
+    - "adapters"  # 训练Adapter层
+    - "speaker_injection"  # 训练说话人注入参数
+    - "decoder"  # 训练解码器
+    - "joint"  # 训练joint网络
+
+# 日志配置
+logging:
+  level: "INFO"  # 日志级别
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"  # 日志格式

@@ -1,0 +1,12 @@
+pretrained_model_path: /root/autodl-tmp/joint_sortformer_and_asr_0815/pretrained_models/stt_zh_conformer_transducer_large.nemo
+K_max: 4
+alpha_init: 0.1
+num_adapters: 12
+adapter_bottleneck: 256
+learning_rate: 0.0001
+weight_decay: 1.0e-06
+train_manifest: /root/autodl-tmp/joint_sortformer_and_asr_0815/data/M8013_multispeaker_manifest_train_joint_no_punc_with_4speakers.json
+val_manifest: /root/autodl-tmp/joint_sortformer_and_asr_0815/data/M8013_multispeaker_manifest_train_joint_no_punc_with_4speakers.json
+batch_size: 2
+num_workers: 4
+sample_rate: 16000
